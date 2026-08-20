@@ -10,8 +10,9 @@ from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
-from pymitsubishi import MitsubishiAPI, MitsubishiController
+from pymitsubishi import MitsubishiAPI
 
+from .cloud import MitsubishiLocalController
 from .const import (
     CONF_ADMIN_PASSWORD,
     CONF_ADMIN_USERNAME,
@@ -33,6 +34,7 @@ PLATFORMS = [
     Platform.BINARY_SENSOR,
     Platform.SELECT,
     Platform.NUMBER,
+    Platform.SWITCH,
 ]
 
 
@@ -53,7 +55,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             admin_username=admin_username,
             admin_password=admin_password,
         )
-        controller = MitsubishiController(api=api)
+        controller = MitsubishiLocalController(api=api)
 
         # Test connection and raise ConfigEntryNotReady if it fails
         try:

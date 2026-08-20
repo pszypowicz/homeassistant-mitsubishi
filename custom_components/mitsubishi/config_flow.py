@@ -12,7 +12,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import AbortFlow
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
-from pymitsubishi import MitsubishiAPI, MitsubishiController
+from pymitsubishi import MitsubishiAPI
+
+from .cloud import MitsubishiLocalController
 
 from .const import (
     CONF_ADMIN_PASSWORD,
@@ -80,7 +82,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     _LOGGER.debug("Using encryption key: %s", encryption_key)
 
     api = MitsubishiAPI(device_host_port=data[CONF_HOST], encryption_key=encryption_key)
-    controller = MitsubishiController(api=api)
+    controller = MitsubishiLocalController(api=api)
 
     try:
         # Test connection
