@@ -4,6 +4,7 @@ from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
+import requests
 from homeassistant.const import CONF_HOST, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -379,3 +380,53 @@ async def test_send_remote_temperature_success(
         mock_executor.assert_called_once()
         # Remote mode should remain enabled on success
         assert coordinator._remote_temp_mode is True
+
+
+@pytest.mark.asyncio
+async def test_async_update_data_connection_error_raises_update_failed(
+    hass, mock_mitsubishi_controller, mock_config_entry
+):
+    """A dropped connection is reported as UpdateFailed."""
+    coordinator = MitsubishiDataUpdateCoordinator(
+        hass, mock_mitsubishi_controller, mock_config_entry
+    )
+
+    error = requests.exceptions.ConnectionError(
+        "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+    )
+
+    with patch.object(hass, "async_add_executor_job", AsyncMock(side_effect=error)):
+        with pytest.raises(UpdateFailed, match="Error communicating with the air conditioner"):
+            await coordinator._async_update_data()
+
+
+@pytest.mark.asyncio
+async def test_async_update_data_connection_error_keeps_original_cause(
+    hass, mock_mitsubishi_controller, mock_config_entry
+):
+    """The originating requests error stays reachable as __cause__."""
+    coordinator = MitsubishiDataUpdateCoordinator(
+        hass, mock_mitsubishi_controller, mock_config_entry
+    )
+
+    error = requests.exceptions.ReadTimeout("timed out")
+
+    with patch.object(hass, "async_add_executor_job", AsyncMock(side_effect=error)):
+        with pytest.raises(UpdateFailed) as excinfo:
+            await coordinator._async_update_data()
+
+    assert excinfo.value.__cause__ is error
+
+
+@pytest.mark.asyncio
+async def test_async_update_data_does_not_swallow_other_errors(
+    hass, mock_mitsubishi_controller, mock_config_entry
+):
+    """Errors that are not transport failures keep propagating unchanged."""
+    coordinator = MitsubishiDataUpdateCoordinator(
+        hass, mock_mitsubishi_controller, mock_config_entry
+    )
+
+    with patch.object(hass, "async_add_executor_job", AsyncMock(side_effect=ValueError("boom"))):
+        with pytest.raises(ValueError, match="boom"):
+            await coordinator._async_update_data()

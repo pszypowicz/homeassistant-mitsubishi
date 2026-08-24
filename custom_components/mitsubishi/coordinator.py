@@ -5,10 +5,11 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
+import requests
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from pymitsubishi import MitsubishiController, ParsedDeviceState
 
 from .const import (
@@ -94,6 +95,13 @@ class MitsubishiDataUpdateCoordinator(DataUpdateCoordinator[ParsedDeviceState]):
 
     async def _async_update_data(self) -> ParsedDeviceState:
         """Update data via library."""
+        try:
+            return await self._async_poll_device()
+        except requests.exceptions.RequestException as err:
+            raise UpdateFailed(f"Error communicating with the air conditioner: {err}") from err
+
+    async def _async_poll_device(self) -> ParsedDeviceState:
+        """Send any pending remote temperature, then fetch the device state."""
         _LOGGER.debug("[%s] Coordinator fetching device status", self.config_entry.title)
 
         # Only process remote temperature if experimental features are enabled
